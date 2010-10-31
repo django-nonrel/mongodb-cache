@@ -1,13 +1,14 @@
 import time
 from django.core.cache.backends.db import BaseDatabaseCacheClass
 from django.db import connections, router
-from bson.errors import InvalidDocument
-from bson.binary import Binary
-from pymongo import ASCENDING
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
+
+from bson.errors import InvalidDocument
+from bson.binary import Binary
+from pymongo import ASCENDING
 
 class CacheClass(BaseDatabaseCacheClass):
     def validate_key(self, key):
@@ -90,6 +91,10 @@ class CacheClass(BaseDatabaseCacheClass):
         self._get_collection().drop()
 
     def _cull(self):
+        if self._cull_frequency == 0:
+            self.clear()
+            return
+
         collection = self._get_collection()
         collection.remove({'e' : {'$lt' : time.time()}})
         # remove all expired entries

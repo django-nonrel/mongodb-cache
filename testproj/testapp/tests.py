@@ -252,3 +252,9 @@ class BaseCacheTests(object):
 class MongoCacheTests(TestCase, BaseCacheTests):
     def setUp(self):
         self.cache = get_cache('django_mongodb_cache://testtable?max_entries=30')
+
+    def test_zero_cull_frequency(self):
+        previous_cull_frequency = self.cache._cull_frequency
+        self.cache._cull_frequency = 0
+        self.perform_cull_test(50, 18)
+        self.cache._cull_frequency = previous_cull_frequency
