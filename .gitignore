@@ -1,0 +1,4 @@
+*.pyc
+build/
+dist/
+django_mongodb_cache.egg_info/
