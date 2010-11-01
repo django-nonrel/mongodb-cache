@@ -258,3 +258,12 @@ class MongoCacheTests(TestCase, BaseCacheTests):
         cache = get_cache('django_mongodb_cache://testtable?max_entries=30&cull_frequency=0')
         assert cache._cull_frequency == 0
         self.perform_cull_test(50, 18, cache=cache)
+
+    def test_invalid_key(self):
+        for methods, args in [
+            (['set', 'add', 'incr', 'decr'], [42]),
+            (['get', 'delete'], [])
+        ]:
+            for method in methods:
+                self.assertRaises(ValueError, getattr(self.cache, method), 'key-with.dot', *args)
+                self.assertRaises(ValueError, getattr(self.cache, method), 'key-with-$dollar', *args)
