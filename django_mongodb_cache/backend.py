@@ -99,7 +99,6 @@ class CacheClass(BaseDatabaseCacheClass):
         collection.remove({'e' : {'$lt' : time.time()}})
         # remove all expired entries
         count = collection.count()
-        assert count > self._max_entries
         if count > self._max_entries:
             # still too much entries left
             cut = collection.find({}, {'e' : 1}) \
