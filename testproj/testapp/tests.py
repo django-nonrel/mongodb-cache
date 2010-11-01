@@ -232,17 +232,18 @@ class BaseCacheTests(object):
         self.assertEqual(self.cache.get('key3'), 'sausage')
         self.assertEqual(self.cache.get('key4'), 'lobster bisque')
 
-    def perform_cull_test(self, initial_count, final_count):
+    def perform_cull_test(self, initial_count, final_count, cache=None):
         """This is implemented as a utility method, because only some of the backends
         implement culling. The culling algorithm also varies slightly, so the final
         number of entries will vary between backends"""
+        cache = cache or self.cache
         # Create initial cache key entries. This will overflow the cache, causing a cull
         for i in range(1, initial_count):
-            self.cache.set('cull%d' % i, 'value', 1000)
+            cache.set('cull%d' % i, 'value', 1000)
         count = 0
         # Count how many keys are left in the cache.
         for i in range(1, initial_count):
-            if self.cache.has_key('cull%d' % i):
+            if cache.has_key('cull%d' % i):
                 count = count + 1
         self.assertEqual(count, final_count)
 
@@ -254,7 +255,6 @@ class MongoCacheTests(TestCase, BaseCacheTests):
         self.cache = get_cache('django_mongodb_cache://testtable?max_entries=30')
 
     def test_zero_cull_frequency(self):
-        previous_cull_frequency = self.cache._cull_frequency
-        self.cache._cull_frequency = 0
-        self.perform_cull_test(50, 18)
-        self.cache._cull_frequency = previous_cull_frequency
+        cache = get_cache('django_mongodb_cache://testtable?max_entries=30&cull_frequency=0')
+        assert cache._cull_frequency == 0
+        self.perform_cull_test(50, 18, cache=cache)
