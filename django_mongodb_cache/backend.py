@@ -17,13 +17,17 @@ class CacheClass(BaseDatabaseCacheClass):
                              "if using MongoDB cache backend")
         super(CacheClass, self).validate_key(key)
 
-    def _get_collection(self):
+    def _collection_for_read(self):
         db = router.db_for_read(self.cache_model_class)
         return connections[db].db_connection[self._table]
 
-    def get(self, key, default=None):
+    def _collection_for_write(self):
+        db = router.db_for_write(self.cache_model_class)
+        return connections[db].db_connection[self._table]
+
+    def get(self, key, default=None, raw=False):
         self.validate_key(key)
-        collection = self._get_collection()
+        collection = self._collection_for_read()
         document = collection.find_one({'_id' : key})
 
         if document is None:
@@ -34,11 +38,17 @@ class CacheClass(BaseDatabaseCacheClass):
             collection.remove({'_id' : key})
             return default
 
+        if raw:
+            return document
+
         pickled_obj = document.get('p')
         if pickled_obj is not None:
             return pickle.loads(pickled_obj)
         else:
             return document['v']
+
+    def has_key(self, key):
+        return self.get(key, raw=True) is not None
 
     def set(self, key, value, timeout=None):
         self._base_set(key, value, timeout, force_set=True)
@@ -48,19 +58,18 @@ class CacheClass(BaseDatabaseCacheClass):
 
     def _base_set(self, key, value, timeout, force_set=False):
         self.validate_key(key)
-        collection = self._get_collection()
+        collection = self._collection_for_write()
 
         if collection.count() > self._max_entries:
-            self._cull()
+            self._cull(collection)
+
+        if not force_set and key in self:
+            # do not overwrite existing, non-expired entries.
+            return False
 
         now = time.time()
         expires = now + (timeout or self.default_timeout)
         new_document = {'_id' : key, 'v' : value, 'e' : expires}
-        if not force_set:
-            current_document = collection.find_one({'_id' : key})
-            if current_document is not None and current_document['e'] >= now:
-                # do not overwrite existing, non-expired entries.
-                return False
 
         try:
             collection.save(new_document)
@@ -72,30 +81,31 @@ class CacheClass(BaseDatabaseCacheClass):
             new_document['p'] = Binary(pickle.dumps(new_document.pop('v'), protocol=2))
             collection.save(new_document)
 
+        return True
+
     def incr(self, key, delta=1):
         # TODO: If PyMongo eventually implements findAndModify, use it.
         self.validate_key(key)
-        collection = self._get_collection()
-        document = collection.find_one({'_id' : key})
+        document = self.get(key, raw=True)
         if document is None:
             raise ValueError("Key %r not found" % key)
+        collection = self._collection_for_write()
         new_value = document['v'] + delta
-        collection.update({'_id' : key}, {'$set' : {'v' : new_value}})
+        collection.update({'_id' : key}, {'$inc' : {'v' : delta}})
         return new_value
 
     def delete(self, key):
         self.validate_key(key)
-        self._get_collection().remove({'_id' : key})
+        self._collection_for_write().remove({'_id' : key})
 
     def clear(self):
-        self._get_collection().drop()
+        self._collection_for_write().drop()
 
-    def _cull(self):
+    def _cull(self, collection):
         if self._cull_frequency == 0:
             self.clear()
             return
 
-        collection = self._get_collection()
         collection.remove({'e' : {'$lt' : time.time()}})
         # remove all expired entries
         count = collection.count()
