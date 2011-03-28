@@ -5,4 +5,4 @@ DATABASES = {
     }
 }
 
-INSTALLED_APPS = ['testapp']
+INSTALLED_APPS = ['testapp', 'regressiontests']
