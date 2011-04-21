@@ -1,0 +1,5 @@
+Testing prerequisites
+=====================
+* apply http://code.djangoproject.com/changeset/16008?format=diff&new=16008
+  against Django-nonrel
+* `ln -s .../django-nonrel/tests/regressiontests .`
