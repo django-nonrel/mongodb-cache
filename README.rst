@@ -8,7 +8,7 @@ How to use it
 =============
 It's easy::
 
-```python
+``` python
 CACHES = {
     'default' : {
         'BACKEND' : 'django_mongodb_cache.MongoDBCache'
