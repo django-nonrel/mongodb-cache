@@ -8,6 +8,10 @@ How to use it
 =============
 It's easy::
 
-   CACHE_BACKEND = 'django_mongodb_cache://collection_name'
+   CACHES = {
+       'default' : {
+           'BACKEND' : 'django_mongodb_cache.MongoDBCache'
+       }
+    }
 
-(You need the very latest Django trunk.)
+**Requires** `Django MongoDB Engine`_ 0.4 or later (currently unreleased, use Git version)
