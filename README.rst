@@ -8,12 +8,11 @@ How to use it
 =============
 It's easy::
 
-``` python
-CACHES = {
-    'default' : {
-        'BACKEND' : 'django_mongodb_cache.MongoDBCache'
+    CACHES = {
+        'default' : {
+            'BACKEND' : 'django_mongodb_cache.MongoDBCache'
+        }
     }
-}```
 
 **Requires** `Django MongoDB Engine`_ 0.4 or later (currently unreleased, use Git version)
 
