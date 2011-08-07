@@ -14,6 +14,10 @@ It's easy::
         }
     }
 
-**Requires** `Django MongoDB Engine`_ 0.4 or later (currently unreleased, use Git version)
+Requirements
+============
+* `Django MongoDB Engine`_ 0.4 or later
+* `PyMongo` 2.0 or later
 
-.. _Django MongoDB Engine: https://github.com/django-mongodb-engine/mongodb-engine
+.. _Django MongoDB Engine: http://django-mongodb.org
+.. _PyMongo: http://api.mongodb.org/python/current/

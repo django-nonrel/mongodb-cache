@@ -6,9 +6,8 @@ try:
 except ImportError:
     import pickle
 
-from bson.errors import InvalidDocument
-from bson.binary import Binary
-from pymongo import ASCENDING
+import pymongo
+import bson
 
 class MongoDBCache(BaseDatabaseCache):
     def validate_key(self, key):
@@ -17,8 +16,9 @@ class MongoDBCache(BaseDatabaseCache):
                              "if using MongoDB cache backend")
         super(MongoDBCache, self).validate_key(key)
 
-    def get(self, key, default=None, version=None, raw=False):
-        key = self.make_key(key, version=version)
+    def get(self, key, default=None, version=None, raw=False, raw_key=False):
+        if not raw_key:
+            key = self.make_key(key, version=version)
         self.validate_key(key)
 
         collection = self._collection_for_read()
@@ -68,27 +68,36 @@ class MongoDBCache(BaseDatabaseCache):
 
         try:
             collection.save(new_document)
-        except InvalidDocument:
+        except bson.errors.InvalidDocument:
             # value can't be serialized to BSON, fall back to pickle.
 
             # TODO: Suppress PyMongo warning here by writing a PyMongo patch
             # that allows BSON to be passed as document to .save
-            new_document['p'] = Binary(pickle.dumps(new_document.pop('v'), protocol=2))
+            pickle_blob = pickle.dumps(new_document.pop('v'), protocol=2)
+            new_document['p'] = bson.binary.Binary(pickle_blob)
             collection.save(new_document)
 
         return True
 
     def incr(self, key, delta=1, version=None):
-        # TODO: If PyMongo eventually implements findAndModify, use it.
-        document = self.get(key, version=version, raw=True)
-        # XXX: Two calls into `make_key` here, should be one
         key = self.make_key(key, version=version)
-        if document is None:
-            raise ValueError("Key %r not found" % key)
         collection = self._collection_for_write()
-        new_value = document['v'] + delta
-        collection.update({'_id' : key}, {'$inc' : {'v' : delta}})
-        return new_value
+        update_args = [{'_id': key}, {'$inc': {'v': delta}}]
+
+        if hasattr(pymongo.collection.Collection, 'find_and_modify'):
+            # XXX change this to tuple/int comparison once
+            # there's a pymongo.version tuple equivalent
+            new_document = collection.find_and_modify(*update_args, new=True, fields=['v'])
+            if new_document is None:
+                raise ValueError("Key %r not found" % key)
+            return new_document['v']
+        else:
+            document = self.get(key, version=version, raw=True, raw_key=True)
+            if document is None:
+                raise ValueError("Key %r not found" % key)
+            new_value = document['v'] + delta
+            collection.update(*update_args)
+            return new_value
 
     def delete(self, key, version=None):
         key = self.make_key(key, version=version)
@@ -109,7 +118,7 @@ class MongoDBCache(BaseDatabaseCache):
         if count > self._max_entries:
             # still too much entries left
             cut = collection.find({}, {'e' : 1}) \
-                            .sort('e', ASCENDING) \
+                            .sort('e', pymongo.ASCENDING) \
                             .skip(count / self._cull_frequency).limit(1)[0]
             collection.remove({'e' : {'$lt' : cut['e']}}, safe=True)
 

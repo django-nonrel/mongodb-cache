@@ -40,6 +40,12 @@ class MongoCacheTests(DBCacheTests):
         self.cache = get_cache('django_mongodb_cache://%s?max_entries=30&cull_frequency=0' % self._table_name)
         self.perform_cull_test(50, 18)
 
+class MongoCacheTestsWithoutFindAndModify(MongoCacheTests):
+    @classmethod
+    def setUpClass(cls):
+        from pymongo.collection import Collection
+        del Collection.find_and_modify
+
 del DBCacheTests
 
 _monkeypatch_zlib()
